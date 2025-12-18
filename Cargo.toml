@@ -3,7 +3,6 @@ resolver = "2"
 members = [
         "rs-matter",
         "rs-matter-macros",
-        "examples",
 ]
 
 exclude = ["tools/tlv", "xtask"]

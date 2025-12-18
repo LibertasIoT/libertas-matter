@@ -1,3 +1,3 @@
-# rs-matter: The Rust Implementation of Matter Library
+# libertas-matter: A stripped-down lite version of official rs-matter
 
-This is the actual `rs-matter` library crate. See [the main README file](../README.md) for more information.
+Keep it minimum for Libertas App development.

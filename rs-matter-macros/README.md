@@ -1,4 +1,6 @@
-# rs-matter-macros
+# libertas-matter-macros
+
+A stripped-down lite version of official rs-matter.
 
 ### Proc-macros for the Rust implementation of Matter.
 

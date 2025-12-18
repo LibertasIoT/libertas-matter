@@ -256,7 +256,7 @@ impl Parse for MatterImportArgs {
 }
 
 fn get_crate_name() -> String {
-    let found_crate = proc_macro_crate::crate_name("rs-matter").unwrap_or_else(|err| {
+    let found_crate = proc_macro_crate::crate_name("libertas-matter").unwrap_or_else(|err| {
         eprintln!("Warning: defaulting to `crate` {err}");
         proc_macro_crate::FoundCrate::Itself
     });

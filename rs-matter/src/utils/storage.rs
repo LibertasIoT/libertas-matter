@@ -20,8 +20,6 @@ pub use ringbuf::*;
 pub use vec::*;
 pub use writebuf::*;
 
-pub mod pooled;
-
 mod parsebuf;
 mod ringbuf;
 mod vec;

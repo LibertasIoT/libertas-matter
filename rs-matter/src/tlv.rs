@@ -25,7 +25,7 @@ use num_traits::ToBytes;
 
 use crate::error::{Error, ErrorCode};
 
-pub use rs_matter_macros::{FromTLV, ToTLV};
+pub use libertas_matter_macros::{FromTLV, ToTLV};
 
 pub use read::*;
 pub use toiter::*;

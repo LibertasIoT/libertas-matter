@@ -320,7 +320,9 @@ impl<T, const N: usize> Vec<T, N> {
         debug_assert!(!self.is_empty());
 
         self.len -= 1;
-        (self.buffer.get_unchecked_mut(self.len).as_ptr() as *const T).read()
+        unsafe {
+            (self.buffer.get_unchecked_mut(self.len).as_ptr() as *const T).read()
+        }
     }
 
     /// Appends an `item` to the back of the collection
@@ -333,7 +335,9 @@ impl<T, const N: usize> Vec<T, N> {
         // use `ptr::write` to avoid running `T`'s destructor on the uninitialized memory
         debug_assert!(!self.is_full());
 
-        *self.buffer.get_unchecked_mut(self.len) = MaybeUninit::new(item);
+        unsafe {
+            *self.buffer.get_unchecked_mut(self.len) = MaybeUninit::new(item);
+        }
 
         self.len += 1;
     }
@@ -581,11 +585,13 @@ impl<T, const N: usize> Vec<T, N> {
     pub unsafe fn swap_remove_unchecked(&mut self, index: usize) -> T {
         let length = self.len();
         debug_assert!(index < length);
-        let value = ptr::read(self.as_ptr().add(index));
-        let base_ptr = self.as_mut_ptr();
-        ptr::copy(base_ptr.add(length - 1), base_ptr.add(index), 1);
-        self.len -= 1;
-        value
+        unsafe {
+            let value = ptr::read(self.as_ptr().add(index));
+            let base_ptr = self.as_mut_ptr();
+            ptr::copy(base_ptr.add(length - 1), base_ptr.add(index), 1);
+            self.len -= 1;
+            value
+        }
     }
 
     /// Returns true if the vec is full

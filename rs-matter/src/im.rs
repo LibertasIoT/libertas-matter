@@ -25,14 +25,11 @@ use num_derive::FromPrimitive;
 
 use crate::error::{Error, ErrorCode};
 use crate::tlv::{FromTLV, TLVElement, TLVTag, TLVWrite, ToTLV, TLV};
-use crate::transport::exchange::MessageMeta;
 
 pub use attr::*;
 pub use invoke::*;
 pub use status::*;
 pub use timed::*;
-
-pub mod busy;
 
 mod attr;
 mod invoke;
@@ -136,29 +133,11 @@ pub enum OpCode {
 }
 
 impl OpCode {
-    /// Return the opcode as a `MessageMeta` structure, which contains
-    /// the protocol ID, opcode, and reliability information.
-    ///
-    /// Reliability is set to `true` as all IM messages are reliable.
-    pub const fn meta(&self) -> MessageMeta {
-        MessageMeta {
-            proto_id: PROTO_ID_INTERACTION_MODEL,
-            proto_opcode: *self as u8,
-            reliable: true,
-        }
-    }
-
     /// Return `true` if the opcode payload is in TLV format.
     ///
     /// Currently, the payload of all IM opcodes except `Reserved` is in TLV format.
     pub const fn is_tlv(&self) -> bool {
         !matches!(self, Self::Reserved)
-    }
-}
-
-impl From<OpCode> for MessageMeta {
-    fn from(opcode: OpCode) -> Self {
-        opcode.meta()
     }
 }
 
