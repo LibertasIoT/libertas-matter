@@ -220,7 +220,7 @@ mod tests {
     use core::fmt::Debug;
     use core::mem::MaybeUninit;
 
-    use rs_matter_macros::{FromTLV, ToTLV};
+    use libertas_matter_macros::{FromTLV, ToTLV};
 
     use crate::tlv::{Octets, TLVElement, TLV};
     use crate::utils::init::InitMaybeUninit;
