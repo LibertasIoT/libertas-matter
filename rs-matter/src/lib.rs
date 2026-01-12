@@ -15,6 +15,8 @@
  *    limitations under the License.
  */
 
+#![no_std] 
+
 //! Native Rust Implementation of Matter (Smart-Home)
 //!
 //! This crate implements the Matter specification that can be run on embedded devices

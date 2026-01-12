@@ -1,6 +1,6 @@
 [package]
 name = "libertas-matter"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 authors = ["Kedar Sovani <kedars@gmail.com>", "Ivan Markov", "Project CHIP Authors", "Qingjun Wei"]
 description = "A stripped-down lite version of official rs-matter"
@@ -11,10 +11,10 @@ categories = ["embedded", "network-programming"]
 license = "Apache-2.0"
 
 [features]
-default = ["os", "log"]
+default = ["alloc", "log"]
 
 # General
-os = ["std", "backtrace", "critical-section/std", "embassy-sync/std", "embassy-time/std"]
+os = ["std", "backtrace", "embassy-sync/std", "embassy-time/std"]
 std = ["alloc"]
 backtrace = []
 alloc = ["defmt?/alloc"]
@@ -28,23 +28,21 @@ libertas-matter-macros = { version = "0.1", path = "../rs-matter-macros" }
 cfg-if = "1"
 bitflags = { version =  "2.5", default-features = false }
 heapless = "0.8"
-num = { version = "0.4", default-features = false }
+num = { version = "0.4", default-features = false, features = [] }
 num-derive = "0.4"
 num-traits = { version = "0.2", default-features = false }
 strum = { version = "0.26", features = ["derive"], default-features = false }
 log = { version = "0.4", optional = true }
 defmt = { version = "0.3", optional = true, features = ["ip_in_core"] }
 subtle = { version = "2.5", default-features = false }
-time = { version = "0.3", default-features = false }
+time = { version = "0.3", default-features = false, optional = true }
 verhoeff = { version = "1", default-features = false }
-embassy-futures = "0.1.2"
-embassy-time = "0.5"
-embassy-sync = "0.7"
+embassy-futures = { version = "0.1.2", optional = true }
+embassy-time = { version = "0.5", optional = true }
+embassy-sync = { version = "0.7", optional = true }
 either = { version = "1", default-features = false }
-critical-section = "1.1"
 domain = { version = "0.10", default-features = false, features = ["heapless"] }
-qrcodegen-no-heap = "1.8"
-scopeguard = { version = "1", default-features = false }
+scopeguard = { version = "1", default-features = false, optional = true }
 pinned-init = { version = "0.0.8", default-features = false }
 
 [dev-dependencies]
