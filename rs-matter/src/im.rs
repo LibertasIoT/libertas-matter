@@ -21,7 +21,7 @@
 //! returns a busy status code, to all incoming IM requests.
 
 use num::FromPrimitive;
-use num_derive::FromPrimitive;
+use num_derive::{FromPrimitive, ToPrimitive};
 
 use crate::error::{Error, ErrorCode};
 use crate::tlv::{FromTLV, TLVElement, TLVTag, TLVWrite, ToTLV, TLV};
@@ -40,7 +40,7 @@ mod timed;
 pub const PROTO_ID_INTERACTION_MODEL: u16 = 0x01;
 
 /// An enumeration of all possible error codes that can be returned by the Interaction Model.
-#[derive(FromPrimitive, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(FromPrimitive, ToPrimitive, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum IMStatusCode {
     Success = 0,
