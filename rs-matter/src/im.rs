@@ -118,6 +118,7 @@ impl ToTLV for IMStatusCode {
 /// An enumeration of all possible opcodes used in the Interaction Model.
 #[derive(FromPrimitive, Debug, Copy, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[repr(u8)]
 pub enum OpCode {
     Reserved = 0,
     StatusResponse = 1,
