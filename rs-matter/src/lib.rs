@@ -90,6 +90,8 @@ pub mod im;
 pub mod tlv;
 pub mod utils;
 
+const PROTOCOL_MATTER: u16 = 0x0001;
+
 /// Represents a subscription to a cluster event
 /// 
 /// Used to subscribe to specific events within a cluster with urgency levels.
@@ -291,7 +293,7 @@ impl LibertasClusterReadReq {
 /// ```
 #[inline(always)]
 pub fn libertas_device_invoke_req(device: LibertasDevice, data: &[u8]) -> u32 {
-    libertas_device_send_request(device, OpCode::InvokeRequest as u8, data)
+    libertas_device_send_request(PROTOCOL_MATTER, device, OpCode::InvokeRequest as u8, data)
 }
 
 /// Sends a read request to a device
@@ -323,7 +325,7 @@ pub fn libertas_device_read_req(device: LibertasDevice, data: &[LibertasClusterR
                 raw_list.as_ptr() as *const u8,
                 raw_list.len() * core::mem::size_of::<LibertasClusterReadReqRaw>(),
             );
-        libertas_device_send_request(device, OpCode::ReadRequest as u8, data)
+        libertas_device_send_request(PROTOCOL_MATTER, device, OpCode::ReadRequest as u8, data)
     }    
 }
 
@@ -344,7 +346,7 @@ pub fn libertas_device_read_req(device: LibertasDevice, data: &[LibertasClusterR
 /// 
 #[inline(always)]
 pub fn libertas_device_write_req(device: LibertasDevice, data: &[u8]) -> u32 {
-    libertas_device_send_request(device, OpCode::WriteRequest as u8, data)
+    libertas_device_send_request(PROTOCOL_MATTER, device, OpCode::WriteRequest as u8, data)
 }
 
 /// Subscribes to device attributes and events
@@ -366,7 +368,7 @@ pub fn libertas_app_subscribe_req(device_subscriptions: &[LibertasDeviceSubscrib
                 device_list.as_ptr() as *const u8,
                 device_list.len() * core::mem::size_of::<LibertasDeviceSubscribeReqRaw>(),
             );
-        libertas_device_send_request(0, OpCode::SubscribeRequest as u8, data);
+        libertas_device_send_request(PROTOCOL_MATTER, 0, OpCode::SubscribeRequest as u8, data);
     }
 }
 
@@ -381,7 +383,7 @@ pub fn libertas_app_subscribe_req(device_subscriptions: &[LibertasDeviceSubscrib
 /// 
 #[inline(always)]
 pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32, data: &[u8]) {
-    libertas_device_send_response(device, OpCode::InvokeResponse as u8, data, trans_id);
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::InvokeResponse as u8, data, trans_id);
 }
 
 /// Sends a write response from a virtual device
@@ -396,7 +398,7 @@ pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32,
 /// 
 #[inline(always)]
 pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, data: &[u8]) {
-    libertas_device_send_response(device, OpCode::WriteResponse as u8, data, trans_id);
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::WriteResponse as u8, data, trans_id);
 }
 
 /// Sends a status response from a virtual device
@@ -410,5 +412,5 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
 /// 
 #[inline(always)]
 pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32, status: IMStatusCode) {
-    libertas_device_send_response(device,  OpCode::StatusResponse as u8, &[status as u8], trans_id);
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id);
 }
