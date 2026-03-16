@@ -380,10 +380,11 @@ pub fn libertas_app_subscribe_req(device_subscriptions: &[LibertasDeviceSubscrib
 /// * `device` - Virtual device ID
 /// * `seq` - Sequence/transaction ID from the request
 /// * `data` - A Matter encoded InvokeResponseIB structure. The CommandPathIB shall only include Cluster ID and Command ID.
+/// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32, data: &[u8]) {
-    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::InvokeResponse as u8, data, trans_id);
+pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::InvokeResponse as u8, data, trans_id, peer);
 }
 
 /// Sends a write response from a virtual device
@@ -395,10 +396,11 @@ pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32,
 /// * `seq` - Sequence/transaction ID from the request
 /// * `data` - A Matter encoded array of AttributeStatusIB. Only Cluster ID and Attribute ID shall 
 /// be filled in the AttributePathIB.
+/// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, data: &[u8]) {
-    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::WriteResponse as u8, data, trans_id);
+pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::WriteResponse as u8, data, trans_id, peer);
 }
 
 /// Sends a status response from a virtual device
@@ -409,8 +411,9 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
 /// * `device` - Virtual device ID
 /// * `seq` - Sequence/transaction ID from the request
 /// * `status` - Status code (0 = success, non-zero = error)
+/// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32, status: IMStatusCode) {
-    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id);
+pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32, status: IMStatusCode, peer: u32) {
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id, peer);
 }
