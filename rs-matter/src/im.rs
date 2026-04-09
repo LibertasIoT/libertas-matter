@@ -121,6 +121,7 @@ pub enum OpCode {
     InvokeRequest = 8,
     InvokeResponse = 9,
     TimedRequest = 10,
+    AttributeChanged = 0xF0,
 }
 
 impl OpCode {

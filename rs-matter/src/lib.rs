@@ -417,3 +417,24 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
 pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32, status: IMStatusCode, peer: u32) {
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id, peer);
 }
+
+pub fn libertas_virtual_device_attribute_changed(device: LibertasDevice, data: &[LibertasClusterReadReq], peer: u32) -> u32 {
+    unsafe {
+        let mut raw_list: Vec<LibertasClusterReadReqRaw> = Vec::with_capacity(data.len());
+        for cur in data {
+            raw_list.push(
+                LibertasClusterReadReqRaw {
+                    cluster: cur.cluster,
+                    attributes: cur.attributes.as_ptr(),
+                    attributes_len: cur.attributes.len(),
+                    events: cur.events.as_ptr(),
+                    events_len: cur.events.len(),
+                });
+        }
+        let data = core::slice::from_raw_parts(
+                raw_list.as_ptr() as *const u8,
+                raw_list.len() * core::mem::size_of::<LibertasClusterReadReqRaw>(),
+            );
+        __libertas_device_send_raw_req(PROTOCOL_MATTER, device, OpCode::AttributeChanged as u8, peer, data.as_ptr(), data.len())
+    }    
+}
