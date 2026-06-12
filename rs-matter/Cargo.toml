@@ -25,6 +25,7 @@ large-buffers = [] # TCP support
 
 [dependencies]
 libertas = { git = "https://github.com/LibertasIoT/libertas-rs.git", package="libertas" }
+libertas_macros = { git = "https://github.com/LibertasIoT/libertas-rs.git", package="libertas_macros" }
 libertas-matter-macros = { version = "0.1", path = "../rs-matter-macros" }
 bitflags = { version =  "2.5", default-features = false }
 heapless = "0.8"
