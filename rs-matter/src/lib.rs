@@ -403,6 +403,21 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::WriteResponse as u8, data, trans_id, peer);
 }
 
+/// Sends an attributes response from a virtual device
+/// 
+/// Responds to a attributes request directed at a virtual device implementation with the requested attribute values.
+/// 
+/// # Arguments
+/// * `device` - Virtual device ID
+/// * `seq` - Sequence/transaction ID from the request
+/// * `data` - A Matter encoded array of AttributeDataIB. Only Cluster and Attribute values shall appear in the AttributePathIB. Note ommission of cluster ID shall be interpreted as though EnableTagCompression is on thus will be filled with the last such value in the array.
+/// * `peer` - The peer that sent the original request.
+///
+#[inline(always)]
+pub fn libertas_virtual_device_attributes_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+    libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::ReportData as u8, data, trans_id, peer);
+}
+
 /// Sends a status response from a virtual device
 /// 
 /// Responds with a status code to a request directed at a virtual device implementation.
