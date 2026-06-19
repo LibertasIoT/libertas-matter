@@ -462,6 +462,11 @@ pub fn libertas_virtual_device_attribute_changed(device: LibertasDevice, data: &
 ///
 /// Starts the necessary TLV containers (CommandDataIB structure, path list, and fields structure).
 /// After calling this, the caller can encode the command fields using context tags.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared containers to
+/// * `cluster_id` - Target cluster ID for the invoke request
+/// * `command_id` - Target command ID to invoke
 pub fn libertas_device_invoke_prepare(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -479,6 +484,9 @@ pub fn libertas_device_invoke_prepare(
 /// Finalizes the invoke request in the WriteBuf.
 ///
 /// Closes the fields structure and the outer CommandDataIB structure.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the invoke request to finalize
 pub fn libertas_device_invoke_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end fields Struct
     buf.end_container()?; // end CommandDataIB Struct
@@ -489,6 +497,11 @@ pub fn libertas_device_invoke_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Err
 ///
 /// Starts the necessary TLV containers (AttributeDataIBs array, AttributeDataIB structure, and path list).
 /// After calling this, the caller should encode the data element using Context tag 2 (kData).
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared containers to
+/// * `cluster_id` - Target cluster ID for the write request
+/// * `attribute_id` - Target attribute ID to write to
 pub fn libertas_device_write_prepare(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -506,6 +519,9 @@ pub fn libertas_device_write_prepare(
 /// Finalizes the write request in the WriteBuf.
 ///
 /// Closes the AttributeDataIB structure and the outer AttributeDataIBs array.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the write request to finalize
 pub fn libertas_device_write_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end AttributeDataIB Struct
     buf.end_container()?; // end AttributeDataIBs Array
@@ -517,6 +533,11 @@ pub fn libertas_device_write_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Erro
 /// Starts the necessary TLV containers (InvokeResponseIB structure,
 /// CommandDataIB structure, path list, and fields structure).
 /// After calling this, the caller can encode the response fields using context tags.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared containers to
+/// * `cluster_id` - Target cluster ID for the invoke response
+/// * `command_id` - Target command ID for the invoke response
 pub fn libertas_virtual_device_invoke_rsp_prepare(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -535,6 +556,9 @@ pub fn libertas_virtual_device_invoke_rsp_prepare(
 /// Finalizes the virtual device invoke response in the WriteBuf.
 ///
 /// Closes the fields structure, the CommandDataIB structure, and the outer InvokeResponseIB structure.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the invoke response to finalize
 pub fn libertas_virtual_device_invoke_rsp_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end fields Struct
     buf.end_container()?; // end kCommand Struct
@@ -545,6 +569,9 @@ pub fn libertas_virtual_device_invoke_rsp_finalize(buf: &mut WriteBuf<'_>) -> Re
 /// Prepares a WriteBuf for a virtual device write response.
 ///
 /// Starts the Array of AttributeStatusIB.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared array tag to
 pub fn libertas_virtual_device_write_rsp_prepare(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.start_array(&TLVTag::Anonymous)?; // Array of AttributeStatusIB
     Ok(())
@@ -632,4 +659,84 @@ pub fn libertas_virtual_device_attributes_rsp_add_status(
 pub fn libertas_virtual_device_attributes_rsp_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end Array of AttributeReportIB
     Ok(())
+}
+
+/// Writes a virtual device invoke response containing a status code.
+///
+/// Writes the necessary TLV containers (InvokeResponseIB structure,
+/// CommandStatusIB structure, path list, and StatusIB structure).
+pub fn libertas_virtual_device_invoke_rsp_status(
+    buf: &mut WriteBuf<'_>,
+    cluster_id: u32,
+    command_id: u32,
+    status: u32,
+) -> Result<(), Error> {
+    buf.start_struct(&TLVTag::Anonymous)?; // InvokeResponseIB Struct
+    buf.start_struct(&TLVTag::Context(1))?; // kStatus: CommandStatusIB Struct
+    buf.start_list(&TLVTag::Context(0))?; // path List
+    buf.u32(&TLVTag::Context(1), cluster_id)?; // clusterId
+    buf.u32(&TLVTag::Context(2), command_id)?; // commandId
+    buf.end_container()?; // end path List
+    buf.start_struct(&TLVTag::Context(1))?; // errorStatus: StatusIB Struct
+    buf.u8(&TLVTag::Context(0), (status & 0xFF) as u8)?; // status
+    let cluster_status = (status >> 8) & 0xFF;
+    if cluster_status != 0 {
+        buf.u8(&TLVTag::Context(1), cluster_status as u8)?; // clusterStatus
+    }
+    buf.end_container()?; // end errorStatus Struct
+    buf.end_container()?; // end kStatus Struct
+    buf.end_container()?; // end InvokeResponseIB Struct
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tlv::{TLVElement, TLVTag};
+
+    #[test]
+    fn test_virtual_device_invoke_rsp_status() {
+        let mut buf = [0u8; 128];
+        let mut write_buf = WriteBuf::new(&mut buf);
+        libertas_virtual_device_invoke_rsp_status(&mut write_buf, 0x1234, 0x5678, 0x0102).unwrap();
+        let bytes = write_buf.as_slice();
+
+        let root = TLVElement::new(bytes).structure().unwrap();
+        let kstatus = root.find_ctx(1).unwrap().structure().unwrap();
+        let kpath = kstatus.find_ctx(0).unwrap().list().unwrap();
+        let mut path_iter = kpath.iter();
+        
+        let cluster = path_iter.next().unwrap().unwrap();
+        assert_eq!(cluster.tag().unwrap(), TLVTag::Context(1));
+        assert_eq!(cluster.u32().unwrap(), 0x1234);
+
+        let command = path_iter.next().unwrap().unwrap();
+        assert_eq!(command.tag().unwrap(), TLVTag::Context(2));
+        assert_eq!(command.u32().unwrap(), 0x5678);
+        assert!(path_iter.next().is_none());
+
+        let error_status = kstatus.find_ctx(1).unwrap().structure().unwrap();
+        let status_field = error_status.find_ctx(0).unwrap();
+        assert_eq!(status_field.u8().unwrap(), 0x02);
+
+        let cluster_status_field = error_status.find_ctx(1).unwrap();
+        assert_eq!(cluster_status_field.u8().unwrap(), 0x01);
+    }
+
+    #[test]
+    fn test_virtual_device_invoke_rsp_status_no_cluster_status() {
+        let mut buf = [0u8; 128];
+        let mut write_buf = WriteBuf::new(&mut buf);
+        libertas_virtual_device_invoke_rsp_status(&mut write_buf, 0x1234, 0x5678, 0x02).unwrap();
+        let bytes = write_buf.as_slice();
+
+        let root = TLVElement::new(bytes).structure().unwrap();
+        let kstatus = root.find_ctx(1).unwrap().structure().unwrap();
+        let error_status = kstatus.find_ctx(1).unwrap().structure().unwrap();
+        
+        let status_field = error_status.find_ctx(0).unwrap();
+        assert_eq!(status_field.u8().unwrap(), 0x02);
+
+        assert!(error_status.find_ctx(1).unwrap().is_empty());
+    }
 }
