@@ -382,7 +382,7 @@ pub fn libertas_app_subscribe_req(device_subscriptions: &[LibertasDeviceSubscrib
 /// 
 /// # Arguments
 /// * `device` - Virtual device ID
-/// * `seq` - Sequence/transaction ID from the request
+/// * `trans_id` - Transaction ID from the request
 /// * `data` - A Matter encoded InvokeResponseIB structure. The CommandPathIB shall only include Cluster ID and Command ID.
 /// * `peer` - The peer that sent the original request.
 /// 
@@ -397,7 +397,7 @@ pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32,
 /// 
 /// # Arguments
 /// * `device` - Virtual device ID
-/// * `seq` - Sequence/transaction ID from the request
+/// * `trans_id` - Transaction ID from the request
 /// * `data` - A Matter encoded array of AttributeStatusIB. Only Cluster ID and Attribute ID shall 
 /// be filled in the AttributePathIB.
 /// * `peer` - The peer that sent the original request.
@@ -413,7 +413,7 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
 /// 
 /// # Arguments
 /// * `device` - Virtual device ID
-/// * `seq` - Sequence/transaction ID from the request
+/// * `trans_id` - Transaction ID from the request
 /// * `data` - A Matter encoded array of AttributeDataIB. Only Cluster and Attribute values shall appear in the AttributePathIB. Note ommission of cluster ID shall be interpreted as though EnableTagCompression is on thus will be filled with the last such value in the array.
 /// * `peer` - The peer that sent the original request.
 ///
@@ -428,7 +428,7 @@ pub fn libertas_virtual_device_attributes_rsp(device: LibertasDevice, trans_id: 
 /// 
 /// # Arguments
 /// * `device` - Virtual device ID
-/// * `seq` - Sequence/transaction ID from the request
+/// * `trans_id` - Transaction ID from the request
 /// * `status` - Status code (0 = success, non-zero = error)
 /// * `peer` - The peer that sent the original request.
 /// 
@@ -437,6 +437,12 @@ pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32,
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id, peer);
 }
 
+/// Reports that attributes of a virtual device have changed.
+/// 
+/// # Arguments
+/// * `device` - Virtual device ID
+/// * `data` - List of cluster read requests specifying the changed attributes and events
+/// * `peer` - The peer subscription ID to send the update to
 pub fn libertas_virtual_device_attribute_changed(device: LibertasDevice, data: &[LibertasClusterReadReq], peer: u32) -> u32 {
     unsafe {
         let mut raw_list: Vec<LibertasClusterReadReqRaw> = Vec::with_capacity(data.len());
@@ -578,6 +584,12 @@ pub fn libertas_virtual_device_write_rsp_prepare(buf: &mut WriteBuf<'_>) -> Resu
 }
 
 /// Adds a status entry to a virtual device write response.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to append the status entry to
+/// * `cluster_id` - Target cluster ID associated with the attribute
+/// * `attribute_id` - Target attribute ID that was written
+/// * `status` - The status code representing the write result
 pub fn libertas_virtual_device_write_rsp_add(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -597,6 +609,9 @@ pub fn libertas_virtual_device_write_rsp_add(
 }
 
 /// Finalizes the virtual device write response in the WriteBuf.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the write response to finalize
 pub fn libertas_virtual_device_write_rsp_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end Array of AttributeStatusIB
     Ok(())
@@ -605,6 +620,9 @@ pub fn libertas_virtual_device_write_rsp_finalize(buf: &mut WriteBuf<'_>) -> Res
 /// Prepares a WriteBuf for a virtual device attributes response (Report Data).
 ///
 /// Starts the Array of AttributeReportIB.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared array tag to
 pub fn libertas_virtual_device_attributes_rsp_prepare(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.start_array(&TLVTag::Anonymous)?; // Array of AttributeReportIB
     Ok(())
@@ -613,6 +631,11 @@ pub fn libertas_virtual_device_attributes_rsp_prepare(buf: &mut WriteBuf<'_>) ->
 /// Prepares a single attribute data report entry.
 ///
 /// After calling this, the caller must write the data value itself using Context tag 2 (kData).
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the prepared entry tags to
+/// * `cluster_id` - Target cluster ID for the attribute report entry
+/// * `attribute_id` - Target attribute ID for the attribute report entry
 pub fn libertas_virtual_device_attributes_rsp_add_prepare(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -628,6 +651,9 @@ pub fn libertas_virtual_device_attributes_rsp_add_prepare(
 }
 
 /// Finalizes a single attribute data report entry.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the report entry to finalize
 pub fn libertas_virtual_device_attributes_rsp_add_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end attributeData Struct
     buf.end_container()?; // end AttributeReportIB Struct
@@ -635,6 +661,12 @@ pub fn libertas_virtual_device_attributes_rsp_add_finalize(buf: &mut WriteBuf<'_
 }
 
 /// Adds a status report entry for a single attribute.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to append the status report entry to
+/// * `cluster_id` - The cluster ID for this attribute report entry
+/// * `attribute_id` - The attribute ID for this attribute report entry
+/// * `status` - The status code representing the read failure
 pub fn libertas_virtual_device_attributes_rsp_add_status(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
@@ -656,6 +688,9 @@ pub fn libertas_virtual_device_attributes_rsp_add_status(
 }
 
 /// Finalizes the virtual device attributes response in the WriteBuf.
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` containing the attributes response to finalize
 pub fn libertas_virtual_device_attributes_rsp_finalize(buf: &mut WriteBuf<'_>) -> Result<(), Error> {
     buf.end_container()?; // end Array of AttributeReportIB
     Ok(())
@@ -665,6 +700,12 @@ pub fn libertas_virtual_device_attributes_rsp_finalize(buf: &mut WriteBuf<'_>) -
 ///
 /// Writes the necessary TLV containers (InvokeResponseIB structure,
 /// CommandStatusIB structure, path list, and StatusIB structure).
+///
+/// # Arguments
+/// * `buf` - The `WriteBuf` to write the serialized response to
+/// * `cluster_id` - Target cluster ID for the invoke response status
+/// * `command_id` - Target command ID for the invoke response status
+/// * `status` - Status code (lower 8 bits are standard status, higher 8 bits are optional cluster status)
 pub fn libertas_virtual_device_invoke_rsp_status(
     buf: &mut WriteBuf<'_>,
     cluster_id: u32,
