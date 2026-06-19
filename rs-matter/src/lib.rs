@@ -78,7 +78,7 @@ pub use im::{IMStatusCode, OpCode};
 use libertas::*;
 
 use crate::utils::storage::WriteBuf;
-use crate::tlv::{TLVTag, TLVWrite};
+use crate::tlv::{TLVElement, TLVTag, TLVWrite};
 use crate::error::Error;
 
 #[cfg(feature = "alloc")]
@@ -387,7 +387,7 @@ pub fn libertas_app_subscribe_req(device_subscriptions: &[LibertasDeviceSubscrib
 /// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+pub fn libertas_virtual_device_invoke_rsp_send(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::InvokeResponse as u8, data, trans_id, peer);
 }
 
@@ -403,7 +403,7 @@ pub fn libertas_virtual_device_invoke_rsp(device: LibertasDevice, trans_id: u32,
 /// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+pub fn libertas_virtual_device_write_rsp_send(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::WriteResponse as u8, data, trans_id, peer);
 }
 
@@ -418,7 +418,7 @@ pub fn libertas_virtual_device_write_rsp(device: LibertasDevice, trans_id: u32, 
 /// * `peer` - The peer that sent the original request.
 ///
 #[inline(always)]
-pub fn libertas_virtual_device_attributes_rsp(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
+pub fn libertas_virtual_device_attributes_rsp_send(device: LibertasDevice, trans_id: u32, data: &[u8], peer: u32) {
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::ReportData as u8, data, trans_id, peer);
 }
 
@@ -433,7 +433,7 @@ pub fn libertas_virtual_device_attributes_rsp(device: LibertasDevice, trans_id: 
 /// * `peer` - The peer that sent the original request.
 /// 
 #[inline(always)]
-pub fn libertas_virtual_device_status_rsp(device: LibertasDevice, trans_id: u32, status: IMStatusCode, peer: u32) {
+pub fn libertas_virtual_device_status_rsp_send(device: LibertasDevice, trans_id: u32, status: IMStatusCode, peer: u32) {
     libertas_device_send_response(PROTOCOL_MATTER, device, OpCode::StatusResponse as u8, &[status as u8], trans_id, peer);
 }
 
@@ -730,6 +730,73 @@ pub fn libertas_virtual_device_invoke_rsp_status(
     Ok(())
 }
 
+/// The parsed response of a device invoke command.
+#[derive(Debug, Clone)]
+pub enum LibertasDeviceInvokeRsp<'a> {
+    /// Command execution succeeded and returned command fields (data)
+    Command {
+        cluster_id: u32,
+        command_id: u32,
+        fields: TLVElement<'a>,
+    },
+    /// Command execution returned a status code (e.g. success or error status)
+    Status {
+        cluster_id: u32,
+        command_id: u32,
+        status: u32,
+    },
+}
+
+/// Parses an invoke request from a virtual device callback.
+///
+/// Returns a tuple of `(cluster_id, command_id, fields_tlv_element)`.
+pub fn libertas_virtual_device_invoke_req_parse(data: &[u8]) -> Result<(u32, u32, TLVElement<'_>), Error> {
+    let root = TLVElement::new(data);
+    let root_struct = root.structure()?;
+    let path_list = root_struct.ctx(0)?.list()?;
+    let cluster_id = path_list.ctx(1)?.u32()?;
+    let command_id = path_list.ctx(2)?.u32()?;
+    let fields = root_struct.find_ctx(1)?;
+    Ok((cluster_id, command_id, fields))
+}
+
+/// Parses a device invoke response.
+pub fn libertas_device_invoke_rsp_parse(data: &[u8]) -> Result<LibertasDeviceInvokeRsp<'_>, Error> {
+    let root = TLVElement::new(data);
+    let root_struct = root.structure()?;
+
+    let status_element = root_struct.find_ctx(1)?;
+    if !status_element.is_empty() {
+        let cmd_status_ib = status_element.structure()?;
+        let path_list = cmd_status_ib.ctx(0)?.list()?;
+        let cluster_id = path_list.ctx(1)?.u32()?;
+        let command_id = path_list.ctx(2)?.u32()?;
+
+        let error_status = cmd_status_ib.ctx(1)?.structure()?;
+        let status = error_status.ctx(0)?.u8()?;
+        let cluster_status = error_status.ctx(1).map(|v| v.u8().unwrap_or(0)).unwrap_or(0);
+        let full_status = ((cluster_status as u32) << 8) | (status as u32);
+
+        Ok(LibertasDeviceInvokeRsp::Status {
+            cluster_id,
+            command_id,
+            status: full_status,
+        })
+    } else {
+        let cmd_data_ib = root_struct.ctx(0)?.structure()?;
+        let path_list = cmd_data_ib.ctx(0)?.list()?;
+        let cluster_id = path_list.ctx(1)?.u32()?;
+        let command_id = path_list.ctx(2)?.u32()?;
+        let fields = cmd_data_ib.find_ctx(1)?;
+
+        Ok(LibertasDeviceInvokeRsp::Command {
+            cluster_id,
+            command_id,
+            fields,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -779,5 +846,64 @@ mod tests {
         assert_eq!(status_field.u8().unwrap(), 0x02);
 
         assert!(error_status.find_ctx(1).unwrap().is_empty());
+    }
+
+    #[test]
+    fn test_virtual_device_invoke_req_parse() {
+        let mut buf = [0u8; 128];
+        let mut write_buf = WriteBuf::new(&mut buf);
+        libertas_device_invoke_prepare(&mut write_buf, 0x1234, 0x5678).unwrap();
+        // Add a field
+        write_buf.bool(&TLVTag::Context(1), true).unwrap();
+        libertas_device_invoke_finalize(&mut write_buf).unwrap();
+        let bytes = write_buf.as_slice();
+
+        let (cluster_id, command_id, fields) = libertas_virtual_device_invoke_req_parse(bytes).unwrap();
+        assert_eq!(cluster_id, 0x1234);
+        assert_eq!(command_id, 0x5678);
+
+        let fields_struct = fields.structure().unwrap();
+        let bool_field = fields_struct.ctx(1).unwrap();
+        assert_eq!(bool_field.bool().unwrap(), true);
+    }
+
+    #[test]
+    fn test_device_invoke_rsp_parse_status() {
+        let mut buf = [0u8; 128];
+        let mut write_buf = WriteBuf::new(&mut buf);
+        libertas_virtual_device_invoke_rsp_status(&mut write_buf, 0x1234, 0x5678, 0x0102).unwrap();
+        let bytes = write_buf.as_slice();
+
+        let rsp = libertas_device_invoke_rsp_parse(bytes).unwrap();
+        match rsp {
+            LibertasDeviceInvokeRsp::Status { cluster_id, command_id, status } => {
+                assert_eq!(cluster_id, 0x1234);
+                assert_eq!(command_id, 0x5678);
+                assert_eq!(status, 0x0102);
+            }
+            _ => panic!("Expected Status response"),
+        }
+    }
+
+    #[test]
+    fn test_device_invoke_rsp_parse_command() {
+        let mut buf = [0u8; 128];
+        let mut write_buf = WriteBuf::new(&mut buf);
+        libertas_virtual_device_invoke_rsp_prepare(&mut write_buf, 0x1234, 0x5678).unwrap();
+        write_buf.u32(&TLVTag::Context(1), 999).unwrap();
+        libertas_virtual_device_invoke_rsp_finalize(&mut write_buf).unwrap();
+        let bytes = write_buf.as_slice();
+
+        let rsp = libertas_device_invoke_rsp_parse(bytes).unwrap();
+        match rsp {
+            LibertasDeviceInvokeRsp::Command { cluster_id, command_id, fields } => {
+                assert_eq!(cluster_id, 0x1234);
+                assert_eq!(command_id, 0x5678);
+                let fields_struct = fields.structure().unwrap();
+                let field = fields_struct.ctx(1).unwrap();
+                assert_eq!(field.u32().unwrap(), 999);
+            }
+            _ => panic!("Expected Command response"),
+        }
     }
 }
