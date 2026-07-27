@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Smartonlabs Inc.
+# SPDX-License-Identifier: MIT
+
+[workspace]
+resolver = "2"
+members = [
+    "libertas-matter",
+    "libertas-matter-consts",
+    "libertas-matter-macros",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Smartonlabs Inc."]
+repository = "https://github.com/LibertasIoT/libertas-matter"
+
+[profile.release]
+opt-level = "z"
+debug = 0
+debug-assertions = false
+codegen-units = 1
+lto = "fat"
+incremental = false
+overflow-checks = false

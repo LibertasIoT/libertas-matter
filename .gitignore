@@ -1,0 +1,9 @@
+# Copyright (c) 2026 Smartonlabs Inc.
+# SPDX-License-Identifier: MIT
+
+/target/
+/conformance/
+**/*.rs.bk
+**/mutants.out*/
+/.idea/
+/.vscode/

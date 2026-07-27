@@ -1,0 +1,451 @@
+// Copyright (c) 2026 Smartonlabs Inc.
+// SPDX-License-Identifier: MIT
+
+//! Endpoint-free Matter frames exchanged with the Libertas host.
+
+use crate::{
+    error::Error,
+    tlv::{Element, TLVWrite, Tag, ToTLV, ValueType, transaction},
+};
+
+/// Protocol number passed to the generic Libertas device API.
+pub const PROTOCOL_MATTER: u16 = 0x0001;
+
+/// Operations implemented by the Rust/`libertasd` Matter bridge.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[repr(u8)]
+pub enum Operation {
+    StatusResponse = 0x01,
+    ReadRequest = 0x02,
+    SubscribeRequest = 0x03,
+    SubscribeResponse = 0x04,
+    ReportData = 0x05,
+    WriteRequest = 0x06,
+    WriteResponse = 0x07,
+    InvokeRequest = 0x08,
+    InvokeResponse = 0x09,
+    TimedRequest = 0x0a,
+    AttributeChanged = 0xf0,
+}
+
+/// Matter Interaction Model status and optional cluster status.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Status {
+    pub status: u8,
+    pub cluster_status: Option<u8>,
+}
+
+impl Status {
+    pub const fn from_u16(value: u16) -> Self {
+        Self {
+            status: value as u8,
+            cluster_status: if value > 0xff {
+                Some((value >> 8) as u8)
+            } else {
+                None
+            },
+        }
+    }
+
+    pub const fn as_u16(self) -> u16 {
+        self.status as u16
+            | match self.cluster_status {
+                Some(value) => (value as u16) << 8,
+                None => 0,
+            }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CommandData<'a> {
+    pub cluster_id: u32,
+    pub command_id: u32,
+    pub fields: Option<Element<'a>>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InvokeResponse<'a> {
+    Command(CommandData<'a>),
+    Status {
+        cluster_id: u32,
+        command_id: u32,
+        status: Status,
+    },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum Report<'a> {
+    Data(Element<'a>),
+    Status(Status),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EventTimestamp {
+    Epoch(u64),
+    System(u64),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct EventMetadata {
+    pub event_number: u64,
+    pub priority: u8,
+    pub timestamp: EventTimestamp,
+}
+
+pub fn encode_command_request<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    command_id: u32,
+    fields: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_struct(Tag::Anonymous)?;
+        write_command_path(writer, Tag::Context(0), cluster_id, command_id)?;
+        fields.to_tlv(Tag::Context(1), writer)?;
+        writer.end_container()
+    })
+}
+
+pub fn decode_command_request(encoded: &[u8]) -> Result<CommandData<'_>, Error> {
+    let root = Element::from_bytes(encoded)?;
+    require_type(root, ValueType::Structure)?;
+    let (cluster_id, command_id) = command_path(root.context(0)?)?;
+    Ok(CommandData {
+        cluster_id,
+        command_id,
+        fields: root.get(Tag::Context(1))?,
+    })
+}
+
+pub fn encode_command_response<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    command_id: u32,
+    fields: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_struct(Tag::Anonymous)?;
+        writer.start_struct(Tag::Context(0))?;
+        write_command_path(writer, Tag::Context(0), cluster_id, command_id)?;
+        fields.to_tlv(Tag::Context(1), writer)?;
+        writer.end_container()?;
+        writer.end_container()
+    })
+}
+
+pub fn encode_command_status<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    command_id: u32,
+    status: Status,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_struct(Tag::Anonymous)?;
+        writer.start_struct(Tag::Context(1))?;
+        write_command_path(writer, Tag::Context(0), cluster_id, command_id)?;
+        write_status(writer, Tag::Context(1), status)?;
+        writer.end_container()?;
+        writer.end_container()
+    })
+}
+
+pub fn decode_invoke_response(encoded: &[u8]) -> Result<InvokeResponse<'_>, Error> {
+    let root = Element::from_bytes(encoded)?;
+    require_type(root, ValueType::Structure)?;
+    if let Some(command) = root.get(Tag::Context(0))? {
+        require_type(command, ValueType::Structure)?;
+        let (cluster_id, command_id) = command_path(command.context(0)?)?;
+        return Ok(InvokeResponse::Command(CommandData {
+            cluster_id,
+            command_id,
+            fields: command.get(Tag::Context(1))?,
+        }));
+    }
+    let response = root.context(1)?;
+    require_type(response, ValueType::Structure)?;
+    let (cluster_id, command_id) = command_path(response.context(0)?)?;
+    let status = decode_status(response.context(1)?)?;
+    Ok(InvokeResponse::Status {
+        cluster_id,
+        command_id,
+        status,
+    })
+}
+
+pub fn encode_attribute_write<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    attribute_id: u32,
+    value: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        start_attribute_write_batch(writer)?;
+        write_attribute_batch_entry(writer, cluster_id, attribute_id, value)?;
+        finish_attribute_write_batch(writer)
+    })
+}
+
+pub(crate) fn start_attribute_write_batch<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+) -> Result<(), Error> {
+    writer.start_array(Tag::Anonymous)
+}
+
+pub(crate) fn write_attribute_batch_entry<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    attribute_id: u32,
+    value: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_struct(Tag::Anonymous)?;
+        write_attribute_path(writer, Tag::Context(1), cluster_id, attribute_id)?;
+        value.to_tlv(Tag::Context(2), writer)?;
+        writer.end_container()
+    })
+}
+
+pub(crate) fn finish_attribute_write_batch<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+) -> Result<(), Error> {
+    writer.end_container()
+}
+
+pub fn decode_attribute_write(
+    encoded: &[u8],
+    cluster_id: u32,
+    attribute_id: u32,
+) -> Result<Element<'_>, Error> {
+    let root = Element::from_bytes(encoded)?;
+    require_type(root, ValueType::Array)?;
+    let mut entries = root.children()?;
+    while let Some(entry) = entries.read_element()? {
+        require_type(entry, ValueType::Structure)?;
+        let path = entry.context(1)?;
+        if attribute_path(path)? == (cluster_id, attribute_id) {
+            return entry.context(2);
+        }
+    }
+    Err(Error::PathMismatch)
+}
+
+pub fn encode_write_status<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    attribute_id: u32,
+    status: Status,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_array(Tag::Anonymous)?;
+        write_attribute_status(writer, Tag::Anonymous, cluster_id, attribute_id, status)?;
+        writer.end_container()
+    })
+}
+
+pub fn decode_write_status(
+    encoded: &[u8],
+    cluster_id: u32,
+    attribute_id: u32,
+) -> Result<Status, Error> {
+    let root = Element::from_bytes(encoded)?;
+    require_type(root, ValueType::Array)?;
+    let mut entries = root.children()?;
+    while let Some(entry) = entries.read_element()? {
+        require_type(entry, ValueType::Structure)?;
+        if attribute_path(entry.context(0)?)? == (cluster_id, attribute_id) {
+            return decode_status(entry.context(1)?);
+        }
+    }
+    Err(Error::PathMismatch)
+}
+
+/// Encode the unwrapped report array accepted from a virtual device by
+/// `libertasd`.
+pub fn encode_attribute_report<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    attribute_id: u32,
+    value: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_array(Tag::Anonymous)?;
+        writer.start_struct(Tag::Anonymous)?;
+        writer.start_struct(Tag::Context(1))?;
+        write_attribute_path(writer, Tag::Context(1), cluster_id, attribute_id)?;
+        value.to_tlv(Tag::Context(2), writer)?;
+        writer.end_container()?;
+        writer.end_container()?;
+        writer.end_container()
+    })
+}
+
+pub fn decode_attribute_report(
+    encoded: &[u8],
+    cluster_id: u32,
+    attribute_id: u32,
+) -> Result<Report<'_>, Error> {
+    let root = Element::from_bytes(encoded)?;
+    let reports = report_array(root, 1)?;
+    let mut entries = reports.children()?;
+    while let Some(entry) = entries.read_element()? {
+        require_type(entry, ValueType::Structure)?;
+        if let Some(status) = entry.get(Tag::Context(0))?
+            && attribute_path(status.context(0)?)? == (cluster_id, attribute_id)
+        {
+            return Ok(Report::Status(decode_status(status.context(1)?)?));
+        }
+        if let Some(data) = entry.get(Tag::Context(1))?
+            && attribute_path(data.context(1)?)? == (cluster_id, attribute_id)
+        {
+            return Ok(Report::Data(data.context(2)?));
+        }
+    }
+    Err(Error::PathMismatch)
+}
+
+pub fn encode_event_report<W: TLVWrite + ?Sized, P: ToTLV + ?Sized>(
+    writer: &mut W,
+    cluster_id: u32,
+    event_id: u32,
+    metadata: EventMetadata,
+    value: &P,
+) -> Result<(), Error> {
+    transaction(writer, |writer| {
+        writer.start_array(Tag::Anonymous)?;
+        writer.start_struct(Tag::Anonymous)?;
+        writer.start_struct(Tag::Context(1))?;
+        writer.start_list(Tag::Context(0))?;
+        writer.u32(Tag::Context(2), cluster_id)?;
+        writer.u32(Tag::Context(3), event_id)?;
+        writer.end_container()?;
+        writer.u64(Tag::Context(1), metadata.event_number)?;
+        writer.u8(Tag::Context(2), metadata.priority)?;
+        match metadata.timestamp {
+            EventTimestamp::Epoch(value) => writer.u64(Tag::Context(3), value)?,
+            EventTimestamp::System(value) => writer.u64(Tag::Context(4), value)?,
+        }
+        value.to_tlv(Tag::Context(7), writer)?;
+        writer.end_container()?;
+        writer.end_container()?;
+        writer.end_container()
+    })
+}
+
+pub fn decode_event_report(
+    encoded: &[u8],
+    cluster_id: u32,
+    event_id: u32,
+) -> Result<Report<'_>, Error> {
+    let root = Element::from_bytes(encoded)?;
+    let reports = report_array(root, 2)?;
+    let mut entries = reports.children()?;
+    while let Some(entry) = entries.read_element()? {
+        require_type(entry, ValueType::Structure)?;
+        if let Some(status) = entry.get(Tag::Context(0))?
+            && event_path(status.context(0)?)? == (cluster_id, event_id)
+        {
+            return Ok(Report::Status(decode_status(status.context(1)?)?));
+        }
+        if let Some(data) = entry.get(Tag::Context(1))?
+            && event_path(data.context(0)?)? == (cluster_id, event_id)
+        {
+            return Ok(Report::Data(data.context(7)?));
+        }
+    }
+    Err(Error::PathMismatch)
+}
+
+fn report_array(root: Element<'_>, context_tag: u8) -> Result<Element<'_>, Error> {
+    if root.value_type() == ValueType::Array {
+        Ok(root)
+    } else {
+        require_type(root, ValueType::Structure)?;
+        let reports = root.context(context_tag)?;
+        require_type(reports, ValueType::Array)?;
+        Ok(reports)
+    }
+}
+
+fn write_command_path<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    tag: Tag,
+    cluster_id: u32,
+    command_id: u32,
+) -> Result<(), Error> {
+    writer.start_list(tag)?;
+    writer.u32(Tag::Context(1), cluster_id)?;
+    writer.u32(Tag::Context(2), command_id)?;
+    writer.end_container()
+}
+
+fn write_attribute_path<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    tag: Tag,
+    cluster_id: u32,
+    attribute_id: u32,
+) -> Result<(), Error> {
+    writer.start_list(tag)?;
+    writer.u32(Tag::Context(3), cluster_id)?;
+    writer.u32(Tag::Context(4), attribute_id)?;
+    writer.end_container()
+}
+
+fn write_status<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    tag: Tag,
+    status: Status,
+) -> Result<(), Error> {
+    writer.start_struct(tag)?;
+    writer.u8(Tag::Context(0), status.status)?;
+    if let Some(cluster_status) = status.cluster_status {
+        writer.u8(Tag::Context(1), cluster_status)?;
+    }
+    writer.end_container()
+}
+
+fn write_attribute_status<W: TLVWrite + ?Sized>(
+    writer: &mut W,
+    tag: Tag,
+    cluster_id: u32,
+    attribute_id: u32,
+    status: Status,
+) -> Result<(), Error> {
+    writer.start_struct(tag)?;
+    write_attribute_path(writer, Tag::Context(0), cluster_id, attribute_id)?;
+    write_status(writer, Tag::Context(1), status)?;
+    writer.end_container()
+}
+
+fn command_path(path: Element<'_>) -> Result<(u32, u32), Error> {
+    require_type(path, ValueType::List)?;
+    Ok((path.context(1)?.u32()?, path.context(2)?.u32()?))
+}
+
+fn attribute_path(path: Element<'_>) -> Result<(u32, u32), Error> {
+    require_type(path, ValueType::List)?;
+    Ok((path.context(3)?.u32()?, path.context(4)?.u32()?))
+}
+
+fn event_path(path: Element<'_>) -> Result<(u32, u32), Error> {
+    require_type(path, ValueType::List)?;
+    Ok((path.context(2)?.u32()?, path.context(3)?.u32()?))
+}
+
+fn decode_status(status: Element<'_>) -> Result<Status, Error> {
+    require_type(status, ValueType::Structure)?;
+    Ok(Status {
+        status: status.context(0)?.u8()?,
+        cluster_status: match status.get(Tag::Context(1))? {
+            Some(value) => Some(value.u8()?),
+            None => None,
+        },
+    })
+}
+
+fn require_type(element: Element<'_>, expected: ValueType) -> Result<(), Error> {
+    if element.value_type() == expected {
+        Ok(())
+    } else {
+        Err(Error::TypeMismatch)
+    }
+}

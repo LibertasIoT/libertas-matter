@@ -1,0 +1,20 @@
+# Copyright (c) 2026 Smartonlabs Inc.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "libertas-matter-consts"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Generated Matter schema constants and Libertas definitions"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "libertas_matter_consts"
+path = "src/lib.rs"
+
+[dependencies]
+libertas-matter-macros = { path = "../libertas-matter-macros" }

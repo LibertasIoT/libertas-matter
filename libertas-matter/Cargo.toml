@@ -1,0 +1,24 @@
+# Copyright (c) 2026 Smartonlabs Inc.
+# SPDX-License-Identifier: MIT
+
+[package]
+name = "libertas-matter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Matter TLV and typed Libertas logical-device runtime"
+readme = "README.md"
+keywords = ["matter", "no-std", "iot", "libertas"]
+categories = ["embedded", "encoding", "no-std"]
+
+[features]
+default = ["alloc"]
+alloc = []
+std = ["alloc"]
+
+[dependencies]
+libertas = { git = "https://github.com/LibertasIoT/libertas-rs.git", branch = "main", package = "libertas" }
+libertas-matter-consts = { path = "../libertas-matter-consts" }
+libertas-matter-macros = { path = "../libertas-matter-macros" }
