@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 //! Auto-generated Matter schema constants and ID catalogs.
+#![no_std]
 #![forbid(unsafe_code)]
 #![allow(
     non_snake_case,
