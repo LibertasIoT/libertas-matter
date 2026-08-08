@@ -1,6 +1,3 @@
-// Copyright (c) 2026 Smartonlabs Inc.
-// SPDX-License-Identifier: MIT
-
 //! Owned Rust definitions for the generated Matter schema.
 #[macro_export]
 macro_rules! matter_definitions {

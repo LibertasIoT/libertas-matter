@@ -1,25 +1,16 @@
-// Copyright (c) 2026 Smartonlabs Inc.
-// SPDX-License-Identifier: MIT
-
 //! Auto-generated Matter schema constants and ID catalogs.
 #![no_std]
 #![forbid(unsafe_code)]
-#![allow(
-    non_snake_case,
-    non_upper_case_globals,
-    dead_code,
-    clippy::module_inception
-)]
-#![deny(unreachable_pub)]
-pub mod attributes;
+#![allow(non_snake_case, non_upper_case_globals, dead_code)]
 pub mod clusters;
-pub mod commands;
-pub mod constants;
-pub mod definitions;
-pub mod device_types;
-pub mod events;
 pub mod features;
+pub mod attributes;
+pub mod commands;
+pub mod events;
+pub mod constants;
 pub mod fields;
+pub mod device_types;
+pub mod definitions;
 
 #[cfg(test)]
 mod tests {
@@ -27,19 +18,8 @@ mod tests {
 
     #[test]
     fn generated_id_catalogs_include_cluster_entries() {
-        assert!(
-            attributes::ALL
-                .iter()
-                .any(|(cluster, ids)| *cluster == "OnOff"
-                    && ids.iter().any(|(name, _)| *name == "OnOff"))
-        );
-        assert!(
-            commands::ALL
-                .iter()
-                .any(|(cluster, ids)| *cluster == "OnOff"
-                    && ids.iter().any(|(name, _)| *name == "Toggle"))
-        );
-        assert!(events::ALL.iter().any(|(cluster, ids)| *cluster == "Switch"
-            && ids.iter().any(|(name, _)| *name == "InitialPress")));
+        assert!(attributes::ALL.iter().any(|(cluster, ids)| *cluster == "OnOff" && ids.iter().any(|(name, _)| *name == "OnOff")));
+        assert!(commands::ALL.iter().any(|(cluster, ids)| *cluster == "OnOff" && ids.iter().any(|(name, _)| *name == "Toggle")));
+        assert!(events::ALL.iter().any(|(cluster, ids)| *cluster == "Switch" && ids.iter().any(|(name, _)| *name == "InitialPress")));
     }
 }

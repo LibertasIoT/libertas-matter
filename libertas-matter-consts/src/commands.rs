@@ -1,6 +1,3 @@
-// Copyright (c) 2026 Smartonlabs Inc.
-// SPDX-License-Identifier: MIT
-
 libertas_matter_macros::matter_commands! {
 /** This cluster is used for managing the content control (including "parental control") settings on a media device such as a TV, or Set-top Box. */
 pub mod ContentControl {
@@ -223,13 +220,13 @@ pub mod LevelControl {
     pub const Step: u32 = 0x02;
 /** This command will stop the actions of various other commands that are still in progress. */
     pub const Stop: u32 = 0x03;
-/** Command description for MoveToLevelWithOnOff */
+/** This command will move the device to the specified level. */
     pub const MoveToLevelWithOnOff: u32 = 0x04;
-/** Command description for MoveWithOnOff */
+/** This command will move the device using the specified values. */
     pub const MoveWithOnOff: u32 = 0x05;
-/** Command description for StepWithOnOff */
+/** This command will do a relative step change of the device using the specified values. */
     pub const StepWithOnOff: u32 = 0x06;
-/** Command description for StopWithOnOff */
+/** This command will stop the actions of various other commands that are still in progress. */
     pub const StopWithOnOff: u32 = 0x07;
 /** This command will cause the device to change the current frequency to the requested value. */
     pub const MoveToClosestFrequency: u32 = 0x08;

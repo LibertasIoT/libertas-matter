@@ -1,6 +1,3 @@
-// Copyright (c) 2026 Smartonlabs Inc.
-// SPDX-License-Identifier: MIT
-
 /** This cluster is used for managing the content control (including "parental control") settings on a media device such as a TV, or Set-top Box. */
 pub const ContentControl: u32 = 0x050F;
 /** Attributes and commands for configuring the microwave oven control, and reporting cooking stats. */

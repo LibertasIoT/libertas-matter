@@ -1,5 +1,3 @@
-<!-- Copyright (c) 2026 Smartonlabs Inc. SPDX-License-Identifier: MIT -->
-
 # Libertas Matter Constants
 
 Auto-generated Rust constants for the Libertas Matter data model. Attribute,

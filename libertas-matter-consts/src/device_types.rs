@@ -1,6 +1,3 @@
-// Copyright (c) 2026 Smartonlabs Inc.
-// SPDX-License-Identifier: MIT
-
 pub const SoilSensor: u32 = 0x0045;
 pub const Aggregator: u32 = 0x000E;
 pub const Chime: u32 = 0x0146;
