@@ -6,12 +6,12 @@
 use core::{marker::PhantomData, slice};
 
 use crate::{
-    LibertasDevice, LibertasTransId,
     bridge::{send_changed, send_read, send_subscribe, send_tlv_request},
     error::Error,
     frame::{self, Operation},
     model::{MatterAttribute, MatterDevice, MatterEvent},
     tlv::TLVBuffer,
+    LibertasDevice, LibertasTransId,
 };
 
 /// Fixed-capacity typed paths for one cluster in a read request.
@@ -325,6 +325,9 @@ impl<const ATTRIBUTES: usize, const EVENTS: usize> MatterSubscriptionCluster<ATT
         if A::CLUSTER_ID != self.cluster_id {
             return Err(Error::PathMismatch);
         }
+        if self.attributes().contains(&A::ID) {
+            return Err(Error::Constraint);
+        }
         let index = usize::from(self.attribute_count);
         let next = self.attribute_count.checked_add(1).ok_or(Error::NoSpace)?;
         *self.attributes.get_mut(index).ok_or(Error::NoSpace)? = A::ID;
@@ -335,6 +338,9 @@ impl<const ATTRIBUTES: usize, const EVENTS: usize> MatterSubscriptionCluster<ATT
     pub fn add_event<E: MatterEvent>(&mut self, urgent: bool) -> Result<&mut Self, Error> {
         if E::CLUSTER_ID != self.cluster_id {
             return Err(Error::PathMismatch);
+        }
+        if self.events().iter().any(|event| event.event_id == E::ID) {
+            return Err(Error::Constraint);
         }
         let index = usize::from(self.event_count);
         let next = self.event_count.checked_add(1).ok_or(Error::NoSpace)?;
@@ -402,7 +408,11 @@ pub struct MatterClusterSubscription<'a> {
     lifetime: PhantomData<&'a ()>,
 }
 
-/// Borrowed device descriptor for an app-wide subscription.
+/// One device entry in a task-wide [`MatterSubscriptionBatch`].
+///
+/// A device entry cannot be sent independently. Its device ID must be nonzero,
+/// it must contain at least one cluster, and each cluster ID must occur only
+/// once so the replacement snapshot has one deterministic policy per cluster.
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct MatterDeviceSubscription<'a> {
@@ -414,12 +424,24 @@ pub struct MatterDeviceSubscription<'a> {
 }
 
 impl<'a> MatterDeviceSubscription<'a> {
+    /// Create one validated device entry for a task-wide subscription batch.
+    ///
+    /// Returns [`Error::Constraint`] for device zero, an empty cluster slice,
+    /// or duplicate cluster IDs.
     pub fn new(
         device: MatterDevice,
         clusters: &'a [MatterClusterSubscription<'a>],
     ) -> Result<Self, Error> {
-        if clusters.is_empty() {
+        if device.id() == 0 || clusters.is_empty() {
             return Err(Error::Constraint);
+        }
+        for (index, cluster) in clusters.iter().enumerate() {
+            if clusters[..index]
+                .iter()
+                .any(|previous| previous.cluster_id == cluster.cluster_id)
+            {
+                return Err(Error::Constraint);
+            }
         }
         Ok(Self {
             device: device.id(),
@@ -444,15 +466,32 @@ impl<'a> MatterDeviceSubscription<'a> {
     }
 }
 
-/// One borrowed subscription containing every Matter device in the app.
+/// The complete, borrowed Matter subscription set for one App task.
+///
+/// Matter subscriptions can only be sent through this task-wide batch. Sending
+/// a new batch replaces the task's previous Matter subscription set; there is
+/// no additive or per-device subscription operation.
 pub struct MatterSubscriptionBatch<'a> {
     devices: &'a [MatterDeviceSubscription<'a>],
 }
 
 impl<'a> MatterSubscriptionBatch<'a> {
+    /// Validate a complete replacement snapshot for the App task.
+    ///
+    /// Returns [`Error::Constraint`] when the snapshot is empty or repeats a
+    /// device ID. The caller's order is preserved, while uniqueness makes the
+    /// resulting task subscription set unambiguous.
     pub fn new(devices: &'a [MatterDeviceSubscription<'a>]) -> Result<Self, Error> {
         if devices.is_empty() {
             return Err(Error::Constraint);
+        }
+        for (index, device) in devices.iter().enumerate() {
+            if devices[..index]
+                .iter()
+                .any(|previous| previous.device == device.device)
+            {
+                return Err(Error::Constraint);
+            }
         }
         Ok(Self { devices })
     }
@@ -465,7 +504,11 @@ impl<'a> MatterSubscriptionBatch<'a> {
         self.devices.is_empty()
     }
 
-    /// Send the complete app subscription through one host call.
+    /// Replace the App task's complete subscription set through one host call.
+    ///
+    /// This is the crate's only subscription send operation. Once the host
+    /// accepts this batch, it invalidates the task's previous Matter
+    /// subscription set before installing this complete snapshot.
     pub fn send(self) -> LibertasTransId {
         send_subscribe(self.devices)
     }

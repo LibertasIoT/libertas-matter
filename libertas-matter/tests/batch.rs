@@ -171,6 +171,18 @@ fn read_clusters_are_typed_bounded_and_compact() {
 
 #[test]
 fn one_subscription_batch_borrows_all_devices_without_copies() {
+    let mut duplicate_paths = MatterSubscriptionCluster::<2, 2>::for_attribute::<Enabled>(1, 60);
+    duplicate_paths.add_attribute::<Enabled>().unwrap();
+    assert_eq!(
+        duplicate_paths.add_attribute::<Enabled>().map(|_| ()),
+        Err(Error::Constraint)
+    );
+    duplicate_paths.add_event::<Changed>(true).unwrap();
+    assert_eq!(
+        duplicate_paths.add_event::<Changed>(false).map(|_| ()),
+        Err(Error::Constraint)
+    );
+
     let mut first_cluster = MatterSubscriptionCluster::<2, 1>::for_attribute::<Enabled>(1, 60);
     first_cluster
         .add_attribute::<Enabled>()
@@ -188,6 +200,15 @@ fn one_subscription_batch_borrows_all_devices_without_copies() {
 
     let first_clusters = [first_cluster.request().unwrap()];
     let second_clusters = [second_cluster.request().unwrap()];
+    let duplicate_clusters = [first_clusters[0], first_clusters[0]];
+    assert!(matches!(
+        MatterDeviceSubscription::new(MatterDevice::new(10), &duplicate_clusters),
+        Err(Error::Constraint)
+    ));
+    assert!(matches!(
+        MatterDeviceSubscription::new(MatterDevice::new(0), &first_clusters),
+        Err(Error::Constraint)
+    ));
     let devices = [
         MatterDeviceSubscription::new(MatterDevice::new(10), &first_clusters).unwrap(),
         MatterDeviceSubscription::new(MatterDevice::new(11), &second_clusters)
@@ -197,6 +218,11 @@ fn one_subscription_batch_borrows_all_devices_without_copies() {
     let batch = MatterSubscriptionBatch::new(&devices).unwrap();
     assert_eq!(batch.len(), 2);
     assert_eq!(devices[1].event_min(), 42);
+    let duplicate_devices = [devices[0], devices[0]];
+    assert!(matches!(
+        MatterSubscriptionBatch::new(&duplicate_devices),
+        Err(Error::Constraint)
+    ));
 
     let mut invalid = MatterSubscriptionCluster::<1, 0>::for_attribute::<Enabled>(61, 60);
     invalid.add_attribute::<Enabled>().unwrap();

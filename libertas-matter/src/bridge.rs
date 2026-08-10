@@ -8,9 +8,9 @@ use libertas::{
 };
 
 use crate::{
-    LibertasDevice, LibertasTransId,
     batch::{MatterDeviceSubscription, MatterReadRequest},
     frame::{Operation, PROTOCOL_MATTER},
+    LibertasDevice, LibertasTransId,
 };
 
 pub(crate) fn send_tlv_request(
@@ -54,7 +54,17 @@ pub(crate) fn send_changed(
 }
 
 pub(crate) fn send_subscribe(devices: &[MatterDeviceSubscription<'_>]) -> LibertasTransId {
-    send_native_request(0, Operation::SubscribeRequest, 0, devices)
+    // SubscribeRequest is never a per-device operation. Device zero is the
+    // stable ABI sentinel telling libertasd that `devices` is the task's one
+    // complete replacement snapshot; the host independently validates every
+    // embedded device and cluster before replacing the prior snapshot.
+    const APP_SUBSCRIPTION_BATCH_DEVICE: LibertasDevice = 0;
+    send_native_request(
+        APP_SUBSCRIPTION_BATCH_DEVICE,
+        Operation::SubscribeRequest,
+        0,
+        devices,
+    )
 }
 
 fn send_native_request<T>(

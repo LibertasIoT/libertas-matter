@@ -76,7 +76,8 @@ let mut write = light.write_batch(&mut writer)?;
 write.attribute(&OnOff(true))?.attribute(&OnTime(50))?;
 let write_transaction = write.send()?;
 
-// Collect every device first, then issue the app subscription with one send.
+// Collect every device first, then replace the App task's complete subscription
+// set with one batch send.
 let mut light_subscription =
     MatterSubscriptionCluster::<2, 0>::for_attribute::<OnOff>(1, 60);
 light_subscription
@@ -90,6 +91,13 @@ let devices = [
 ];
 let subscription_transaction = MatterSubscriptionBatch::new(&devices)?.send();
 ```
+
+Matter subscriptions are task-wide replacement snapshots. `libertas-matter`
+exposes no additive or per-device subscription send: every send must use one
+`MatterSubscriptionBatch` containing the complete desired device list. A later
+batch invalidates and replaces the task's earlier batch. Device IDs must be
+unique within the batch, and cluster IDs must be unique within each device, so
+the current subscription set is unambiguous and deterministic.
 
 Each stored attribute or read-event ID costs four bytes; each subscription
 event costs eight bytes including its urgency flag. Builders return

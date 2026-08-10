@@ -16,4 +16,4 @@ name = "libertas_matter_consts"
 path = "src/lib.rs"
 
 [dependencies]
-libertas-matter-macros = { path = "../rs-matter-macros" }
+libertas-matter-macros = { path = "../libertas-matter-macros" }
