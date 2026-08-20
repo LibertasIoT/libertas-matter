@@ -32,6 +32,26 @@ Libertas frame paths deliberately contain a cluster ID and an attribute,
 command, or event ID without an endpoint. A Libertas logical device already
 represents the host-routed endpoint.
 
+## Status contract
+
+Matter client results are a raw `u32`: bits 0-7 contain the Interaction Model
+status, bits 8-15 contain the optional cluster status, and bits 16-31 contain a
+Libertas Hub status. Zero is success. `frame::STATUS_SUPERSEDED`
+(`0x0001_0000`) means a retained request differs from what was finally sent.
+
+Superseded results are delayed until that real interaction finishes. A real
+Matter path or interaction error, including timeout, overrides the final
+comparison. Command supersession compares the original command with the command
+actually sent, so an `A -> B -> A` chain succeeds for the retained first `A`.
+Write supersession compares each requested value with the value finally written
+by the pooled Matter interaction. It is attribute-specific, so one response may
+mix success, `STATUS_SUPERSEDED`, and actual Matter errors.
+
+Virtual devices may issue only standard Matter statuses. Their response type is
+`frame::StandardStatus` (`u16`). In the private Rust/Hub TLV frame, a status
+structure contains exactly one context-0 `u32`; it never contains Matter's
+separate context-1 cluster-status field.
+
 ## Example
 
 ```rust,ignore
