@@ -36,7 +36,10 @@ pub trait MatterEvent: MatterPayload {
     const ID: u32;
 }
 
+/// Raw 32-bit Libertas Matter status. See [`frame::Status`] for its bit layout.
 pub type MatterStatus = frame::Status;
+/// Standard Matter status that a virtual device may issue.
+pub type MatterResponseStatus = frame::StandardStatus;
 pub type MatterEventTimestamp = frame::EventTimestamp;
 pub type MatterEventMetadata = frame::EventMetadata;
 
@@ -76,15 +79,6 @@ pub enum IMStatusCode {
     PathsExhausted = 0xc8,
     TimedRequestMismatch = 0xc9,
     FailSafeRequired = 0xca,
-}
-
-impl From<IMStatusCode> for MatterStatus {
-    fn from(status: IMStatusCode) -> Self {
-        Self {
-            status: status as u8,
-            cluster_status: None,
-        }
-    }
 }
 
 /// A Libertas logical device. The host supplies the physical Matter endpoint.
@@ -197,7 +191,7 @@ impl MatterRequestContext {
 
     pub fn respond_command_status<C: MatterCommand>(
         self,
-        status: MatterStatus,
+        status: MatterResponseStatus,
     ) -> Result<(), Error> {
         let mut buffer = InlineByteBuffer::new();
         self.respond_command_status_with_buffer::<C, _>(status, &mut buffer)
@@ -205,7 +199,7 @@ impl MatterRequestContext {
 
     pub fn respond_command_status_with_buffer<C: MatterCommand, B: TLVBuffer + ?Sized>(
         self,
-        status: MatterStatus,
+        status: MatterResponseStatus,
         buffer: &mut B,
     ) -> Result<(), Error> {
         buffer.truncate(0);
@@ -269,7 +263,7 @@ impl MatterRequestContext {
 
     pub fn respond_write_status<A: MatterAttribute>(
         self,
-        status: MatterStatus,
+        status: MatterResponseStatus,
     ) -> Result<(), Error> {
         let mut buffer = InlineByteBuffer::new();
         self.respond_write_status_with_buffer::<A, _>(status, &mut buffer)
@@ -277,7 +271,7 @@ impl MatterRequestContext {
 
     pub fn respond_write_status_with_buffer<A: MatterAttribute, B: TLVBuffer + ?Sized>(
         self,
-        status: MatterStatus,
+        status: MatterResponseStatus,
         buffer: &mut B,
     ) -> Result<(), Error> {
         buffer.truncate(0);

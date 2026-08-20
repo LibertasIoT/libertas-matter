@@ -7,7 +7,10 @@
 
 use libertas_matter::{
     InlineByteBuffer,
-    frame::{self, EventMetadata, EventTimestamp, InvokeResponse, Operation, Report, Status},
+    frame::{
+        self, EventMetadata, EventTimestamp, InvokeResponse, Operation, Report, StandardStatus,
+        Status,
+    },
     tlv::{Element, FromTLV, Tag, ToTLV, ValueType},
 };
 
@@ -57,10 +60,8 @@ struct Fields {
     enabled: bool,
 }
 
-const STATUS: Status = Status {
-    status: 2,
-    cluster_status: Some(1),
-};
+const STATUS: Status = 0x0000_0102;
+const RESPONSE_STATUS: StandardStatus = 0x0102;
 
 fn fields() -> Fields {
     Fields { enabled: true }
@@ -113,7 +114,7 @@ fn invoke_response_vectors_are_frozen() {
     }
 
     writer.clear();
-    frame::encode_command_status(&mut writer, CLUSTER, ITEM, STATUS).unwrap();
+    frame::encode_command_status(&mut writer, CLUSTER, ITEM, RESPONSE_STATUS).unwrap();
     assert_eq!(writer.as_slice(), COMMAND_STATUS);
     assert_eq!(
         frame::decode_invoke_response(COMMAND_STATUS).unwrap(),
@@ -137,7 +138,7 @@ fn attribute_write_and_write_response_vectors_are_frozen() {
     );
 
     writer.clear();
-    frame::encode_write_status(&mut writer, CLUSTER, ITEM, STATUS).unwrap();
+    frame::encode_write_status(&mut writer, CLUSTER, ITEM, RESPONSE_STATUS).unwrap();
     assert_eq!(writer.as_slice(), WRITE_STATUS);
     assert_eq!(
         frame::decode_write_status(WRITE_STATUS, CLUSTER, ITEM).unwrap(),
@@ -182,7 +183,7 @@ fn report_vectors_are_frozen_in_both_host_directions() {
 
 #[test]
 fn native_status_and_read_subscribe_callback_vectors_are_frozen() {
-    assert_eq!(STATUS_RESPONSE, &[2]);
+    assert_eq!(STATUS_RESPONSE, &[STATUS as u8]);
 
     let root = Element::from_bytes(READ_OR_SUBSCRIBE_REQUEST_FROM_HOST).unwrap();
     assert_eq!(root.value_type(), ValueType::Array);

@@ -7,7 +7,7 @@ use core::mem::size_of;
 
 use libertas_matter::{
     MatterAttribute, MatterClusterSubscription, MatterDevice, MatterDeviceSubscription,
-    MatterEvent, MatterReadCluster, MatterReadRequest, MatterStatus, MatterSubscriptionBatch,
+    MatterEvent, MatterReadCluster, MatterReadRequest, MatterSubscriptionBatch,
     MatterSubscriptionCluster, decode_write_response, error::Error, tlv::SliceWriter,
 };
 
@@ -100,17 +100,11 @@ fn typed_batch_write_matches_the_frozen_frame() {
 fn batch_write_decodes_each_typed_status_without_allocating() {
     assert_eq!(
         decode_write_response::<Enabled>(BATCH_WRITE_STATUS).unwrap(),
-        MatterStatus {
-            status: 2,
-            cluster_status: Some(1),
-        }
+        0x0000_0102
     );
     assert_eq!(
         decode_write_response::<Level>(BATCH_WRITE_STATUS).unwrap(),
-        MatterStatus {
-            status: 0,
-            cluster_status: None,
-        }
+        0
     );
 }
 
