@@ -3,7 +3,7 @@
 # libertas-matter
 
 `libertas-matter` is the small Matter wire runtime used by applications hosted
-by [Libertas](https://github.com/LibertasIoT). The host daemon owns
+by Libertas. The host daemon owns
 commissioning, sessions, transport, endpoints, and device lifecycle. This
 workspace provides only:
 

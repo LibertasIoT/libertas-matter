@@ -7,7 +7,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-repository.workspace = true
 description = "Matter TLV and typed Libertas logical-device runtime"
 readme = "README.md"
 keywords = ["matter", "no-std", "iot", "libertas"]
@@ -19,6 +18,6 @@ alloc = []
 std = ["alloc"]
 
 [dependencies]
-libertas = { git = "https://github.com/LibertasIoT/libertas-rs.git", branch = "main", package = "libertas" }
+libertas = { path = "../../libertas-rs/crates/libertas", package = "libertas" }
 libertas-matter-consts = { path = "../libertas-matter-consts" }
 libertas-matter-macros = { path = "../libertas-matter-macros" }

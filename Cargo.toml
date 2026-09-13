@@ -14,7 +14,6 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Smartonlabs Inc."]
-repository = "https://github.com/LibertasIoT/libertas-matter"
 
 [profile.release]
 opt-level = "z"

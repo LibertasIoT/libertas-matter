@@ -50,7 +50,6 @@ dependencies = [
 [[package]]
 name = "libertas"
 version = "0.2.10"
-source = "git+https://github.com/LibertasIoT/libertas-rs.git?branch=main#8ca2ace7a3697ac49e21d55f408e81285304f92f"
 dependencies = [
  "hashbrown 0.16.1",
  "libertas_macros",
@@ -87,7 +86,6 @@ dependencies = [
 [[package]]
 name = "libertas_macros"
 version = "0.2.10"
-source = "git+https://github.com/LibertasIoT/libertas-rs.git?branch=main#8ca2ace7a3697ac49e21d55f408e81285304f92f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -97,7 +95,6 @@ dependencies = [
 [[package]]
 name = "libertas_utils"
 version = "0.2.10"
-source = "git+https://github.com/LibertasIoT/libertas-rs.git?branch=main#8ca2ace7a3697ac49e21d55f408e81285304f92f"
 
 [[package]]
 name = "memchr"
