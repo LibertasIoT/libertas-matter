@@ -7,7 +7,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-repository.workspace = true
 description = "Matter TLV and typed Libertas logical-device runtime"
 readme = "README.md"
 keywords = ["matter", "no-std", "iot", "libertas"]
