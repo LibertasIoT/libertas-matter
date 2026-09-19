@@ -13,12 +13,15 @@ readme = "README.md"
 keywords = ["matter", "no-std", "iot", "libertas"]
 categories = ["embedded", "encoding", "no-std"]
 
+[lib]
+crate-type = ["rlib"]
+
 [features]
 default = ["alloc"]
 alloc = []
 std = ["alloc"]
 
 [dependencies]
-libertas = { git = "https://github.com/LibertasIoT/libertas-rs.git", branch = "main", package = "libertas" }
+libertas = { path = "../../libertas-rs/crates/libertas", package = "libertas" }
 libertas-matter-consts = { path = "../libertas-matter-consts" }
 libertas-matter-macros = { path = "../libertas-matter-macros" }
