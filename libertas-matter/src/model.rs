@@ -154,11 +154,11 @@ impl From<MatterDevice> for LibertasDevice {
 pub struct MatterRequestContext {
     pub device: MatterDevice,
     pub transaction_id: LibertasTransId,
-    pub peer: u32,
+    pub peer: libertas::LibertasPeer,
 }
 
 impl MatterRequestContext {
-    pub const fn new(device: LibertasDevice, transaction_id: LibertasTransId, peer: u32) -> Self {
+    pub const fn new(device: LibertasDevice, transaction_id: LibertasTransId, peer: libertas::LibertasPeer) -> Self {
         Self {
             device: MatterDevice::new(device),
             transaction_id,

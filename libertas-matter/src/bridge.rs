@@ -24,7 +24,7 @@ pub(crate) fn send_tlv_request(
 pub(crate) fn send_response(
     device: LibertasDevice,
     transaction_id: LibertasTransId,
-    peer: u32,
+    peer: libertas::LibertasPeer,
     operation: Operation,
     encoded: &[u8],
 ) {
@@ -47,7 +47,7 @@ pub(crate) fn send_read(
 
 pub(crate) fn send_changed(
     device: LibertasDevice,
-    peer: u32,
+    peer: libertas::LibertasPeer,
     clusters: &[MatterReadRequest<'_>],
 ) -> LibertasTransId {
     send_native_request(device, Operation::AttributeChanged, peer, clusters)
@@ -70,7 +70,7 @@ pub(crate) fn send_subscribe(devices: &[MatterDeviceSubscription<'_>]) -> Libert
 fn send_native_request<T>(
     device: LibertasDevice,
     operation: Operation,
-    peer: u32,
+    peer: libertas::LibertasPeer,
     values: &[T],
 ) -> LibertasTransId {
     let length = core::mem::size_of_val(values);

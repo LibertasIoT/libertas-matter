@@ -146,7 +146,7 @@ impl MatterDevice {
     /// Notify the host of several changed paths in one operation.
     pub fn changed_batch(
         self,
-        peer: u32,
+        peer: libertas::LibertasPeer,
         clusters: &[MatterReadRequest<'_>],
     ) -> Result<LibertasTransId, Error> {
         if clusters.is_empty() {
@@ -157,7 +157,7 @@ impl MatterDevice {
 
     pub fn attribute_changed<A: MatterAttribute>(
         self,
-        peer: u32,
+        peer: libertas::LibertasPeer,
     ) -> Result<LibertasTransId, Error> {
         if !A::READABLE {
             return Err(Error::UnsupportedAccess);
@@ -167,7 +167,7 @@ impl MatterDevice {
         Ok(send_changed(self.id(), peer, slice::from_ref(&request)))
     }
 
-    pub fn event_changed<E: MatterEvent>(self, peer: u32) -> LibertasTransId {
+    pub fn event_changed<E: MatterEvent>(self, peer: libertas::LibertasPeer) -> LibertasTransId {
         let events = [E::ID];
         let request = MatterReadRequest::from_slices(E::CLUSTER_ID, &[], &events);
         send_changed(self.id(), peer, slice::from_ref(&request))
