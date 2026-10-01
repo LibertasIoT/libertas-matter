@@ -36,13 +36,18 @@ pub enum Operation {
 /// Libertas-specific upper field.
 pub type Status = u32;
 
-/// A retained command or attribute request differs from what was finally sent.
+/// A queued command was replaced, or an attribute write differs from the final value.
 ///
-/// For commands, the original command is compared with the command actually
-/// sent. For an attribute write, each requested value in the newest request
-/// retained for that source is compared with the value finally written by the
-/// pooled Matter interaction. An identical final value is success. A real
-/// Matter interaction or path error overrides both results.
+/// Replaced commands receive this rejection only after the surviving interaction
+/// completes. Every retained displaced command receives this rejection, even for
+/// identical commands; only the survivor receives its own success or error.
+/// Only the newest request/reference per source is retained; a newer surviving
+/// request replaces that source's older displaced reference without a separate reply.
+/// A peer's burst keeps only its newest queued command without acknowledging older
+/// queued references. Already-sent commands retain their active interaction.
+/// For an attribute
+/// write, each retained requested value is compared with the value finally written
+/// by the pooled interaction; equality is success and real write errors take precedence.
 pub const STATUS_SUPERSEDED: Status = 0x0001_0000;
 
 /// Standard Matter `StatusIB` issued by a virtual device, packed into 16 bits.

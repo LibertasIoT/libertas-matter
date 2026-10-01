@@ -58,6 +58,8 @@ pub(crate) fn send_subscribe(devices: &[MatterDeviceSubscription<'_>]) -> Libert
     // stable ABI sentinel telling libertasd that `devices` is the task's one
     // complete replacement snapshot; the host independently validates every
     // embedded device and cluster before replacing the prior snapshot.
+    // An empty slice is sent with zero bytes to clear that snapshot; the host
+    // must not dereference the empty slice's pointer.
     const APP_SUBSCRIPTION_BATCH_DEVICE: LibertasDevice = 0;
     send_native_request(
         APP_SUBSCRIPTION_BATCH_DEVICE,

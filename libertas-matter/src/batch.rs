@@ -470,7 +470,8 @@ impl<'a> MatterDeviceSubscription<'a> {
 ///
 /// Matter subscriptions can only be sent through this task-wide batch. Sending
 /// a new batch replaces the task's previous Matter subscription set; there is
-/// no additive or per-device subscription operation.
+/// no additive or per-device subscription operation. Sending an empty batch
+/// clears the task's Matter subscription set.
 pub struct MatterSubscriptionBatch<'a> {
     devices: &'a [MatterDeviceSubscription<'a>],
 }
@@ -478,13 +479,11 @@ pub struct MatterSubscriptionBatch<'a> {
 impl<'a> MatterSubscriptionBatch<'a> {
     /// Validate a complete replacement snapshot for the App task.
     ///
-    /// Returns [`Error::Constraint`] when the snapshot is empty or repeats a
-    /// device ID. The caller's order is preserved, while uniqueness makes the
+    /// An empty snapshot clears every subscription when sent. Returns
+    /// [`Error::Constraint`] when the snapshot repeats a device ID.
+    /// The caller's order is preserved, while uniqueness makes the
     /// resulting task subscription set unambiguous.
     pub fn new(devices: &'a [MatterDeviceSubscription<'a>]) -> Result<Self, Error> {
-        if devices.is_empty() {
-            return Err(Error::Constraint);
-        }
         for (index, device) in devices.iter().enumerate() {
             if devices[..index]
                 .iter()
@@ -508,7 +507,8 @@ impl<'a> MatterSubscriptionBatch<'a> {
     ///
     /// This is the crate's only subscription send operation. Once the host
     /// accepts this batch, it invalidates the task's previous Matter
-    /// subscription set before installing this complete snapshot.
+    /// subscription set before installing this complete snapshot. An empty
+    /// snapshot leaves no subscriptions active for the task.
     pub fn send(self) -> LibertasTransId {
         send_subscribe(self.devices)
     }

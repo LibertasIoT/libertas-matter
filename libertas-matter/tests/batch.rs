@@ -221,11 +221,6 @@ fn one_subscription_batch_borrows_all_devices_without_copies() {
     let mut invalid = MatterSubscriptionCluster::<1, 0>::for_attribute::<Enabled>(61, 60);
     invalid.add_attribute::<Enabled>().unwrap();
     assert!(matches!(invalid.request(), Err(Error::Constraint)));
-    assert!(matches!(
-        MatterSubscriptionBatch::new(&[]),
-        Err(Error::Constraint)
-    ));
-
     assert_eq!(size_of::<MatterSubscriptionCluster<0, 0>>(), 12);
     assert_eq!(size_of::<MatterSubscriptionCluster<4, 2>>(), 44);
     if cfg!(target_pointer_width = "64") {
@@ -233,4 +228,17 @@ fn one_subscription_batch_borrows_all_devices_without_copies() {
         assert_eq!(size_of::<MatterClusterSubscription<'_>>(), 40);
         assert_eq!(size_of::<MatterDeviceSubscription<'_>>(), 32);
     }
+}
+
+#[test]
+fn an_empty_subscription_batch_is_a_valid_complete_snapshot() {
+    let batch = MatterSubscriptionBatch::new(&[]).unwrap();
+    assert_eq!(batch.len(), 0);
+    assert!(batch.is_empty());
+
+    // Empty clusters still cannot disguise a malformed device as a clear.
+    assert!(matches!(
+        MatterDeviceSubscription::new(MatterDevice::new(10), &[]),
+        Err(Error::Constraint)
+    ));
 }

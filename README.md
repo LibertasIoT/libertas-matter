@@ -37,15 +37,25 @@ represents the host-routed endpoint.
 Matter client results are a raw `u32`: bits 0-7 contain the Interaction Model
 status, bits 8-15 contain the optional cluster status, and bits 16-31 contain a
 Libertas Hub status. Zero is success. `frame::STATUS_SUPERSEDED`
-(`0x0001_0000`) means a retained request differs from what was finally sent.
+(`0x0001_0000`) rejects a queued command that was replaced, or a retained
+attribute write whose value differs from what was finally written.
 
-Superseded results are delayed until that real interaction finishes. A real
-Matter path or interaction error, including timeout, overrides the final
-comparison. Command supersession compares the original command with the command
-actually sent, so an `A -> B -> A` chain succeeds for the retained first `A`.
+Pending commands are last-command-wins per logical-device endpoint and cluster
+to reduce device traffic. Only the newest request/reference per source is
+retained, including the survivor: a newer surviving request replaces that
+source's older displaced reference, which receives no separate response.
+A burst from one peer keeps only its newest queued command; older queued
+references are discarded without acknowledgement. A command already sent
+remains owned by its active interaction.
+A retained displaced request's nonzero completion is delayed until the surviving interaction
+finishes. Every retained displaced request receives `STATUS_SUPERSEDED`;
+only the surviving command receives its own success or error result.
+Identical commands and the retained first `A` in an `A -> B -> A`
+chain are still rejected because they were replaced.
 Write supersession compares each requested value with the value finally written
-by the pooled Matter interaction. It is attribute-specific, so one response may
-mix success, `STATUS_SUPERSEDED`, and actual Matter errors.
+by the pooled Matter interaction, with real errors taking precedence. It is
+attribute-specific, so one response may mix success, `STATUS_SUPERSEDED`, and
+actual Matter errors.
 
 Virtual devices may issue only standard Matter statuses. Their response type is
 `frame::StandardStatus` (`u16`). In the private Rust/Hub TLV frame, a status
@@ -117,7 +127,8 @@ exposes no additive or per-device subscription send: every send must use one
 `MatterSubscriptionBatch` containing the complete desired device list. A later
 batch invalidates and replaces the task's earlier batch. Device IDs must be
 unique within the batch, and cluster IDs must be unique within each device, so
-the current subscription set is unambiguous and deterministic.
+the current subscription set is unambiguous and deterministic. Sending
+`MatterSubscriptionBatch::new(&[])?.send()` clears the task's subscriptions.
 
 Each stored attribute or read-event ID costs four bytes; each subscription
 event costs eight bytes including its urgency flag. Builders return
